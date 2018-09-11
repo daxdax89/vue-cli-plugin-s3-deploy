@@ -20,8 +20,8 @@ module.exports = async (options, api) => {
 
   if (await bucketExists(options.bucket)) {
     let cwd = process.cwd()
-    let cwdPrefix = new RegExp(`^${cwd}/${options.assetPath}/`)
-    let fileList = getAllFiles(`${cwd}/${options.assetPath}`)
+    let cwdPrefix = path.join(cwd, options.assetPath + '/')
+    let fileList = getAllFiles(path.join(cwd, options.assetPath))
 
     let uploadCount = 0
     let uploadTotal = fileList.length
@@ -34,6 +34,8 @@ module.exports = async (options, api) => {
       let filename = fileList.pop()
       let fileStream = fs.readFileSync(filename)
       let fileKey = filename.replace(cwdPrefix, '')
+      fileKey = fileKey.replace("\\", "/")
+
 
       let promise = new Promise((resolve, reject) => {
         uploadFile(options.bucket, fileKey, fileStream)
@@ -100,7 +102,6 @@ module.exports = async (options, api) => {
       Bucket: bucket,
       Key: fileKey,
       CacheControl: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-      ContentType: contentTypeFor(fileKey),
       MetadataDirective: 'REPLACE'
     }
     return new Promise((resolve, reject) => {
@@ -136,12 +137,12 @@ module.exports = async (options, api) => {
 
   async function bucketExists (bucketName) {
     return new Promise((resolve, reject) => {
-      let params = { Bucket: bucketName }
-      s3.headBucket(params, function(err, data) {
+      s3.listBuckets((err, data) => {
         if (err) {
           reject(err)
         } else {
-          resolve(true)
+          let names = data['Buckets'].map(b => b['Name'])
+          resolve(names.includes(bucketName))
         }
       })
     })
